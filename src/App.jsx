@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import './assets/styles/style.css';
 // import defaultDataset from './dataset.json';
 
@@ -6,61 +6,46 @@ import { db } from './firebase/index';
 
 import { AnswersList, Chats } from './components';
 import FormDialog from './components/Forms/FromDialog';
+import { Loading } from './components/Loading';
 
-export default class App extends React.Component {
-  constructor(props) {
-    super(props);
+const App = () => {
+  const [answers, setAnswers] = useState([]);
+  const [chats, setChats] = useState([]);
+  const [currentId, setCurrentId] = useState('init');
+  const [dataset, setDataset] = useState({});
+  const [open, setOpen] = useState(false);
 
-    this.state = {
-      answers: [],
-      chats: [],
-      currentId: 'init',
-      dataset: {},
-      open: false,
-    };
-
-    this.selectAnswer = this.selectAnswer.bind(this);
-    this.handleClickOpen = this.handleClickOpen.bind(this);
-    this.handleClose = this.handleClose.bind(this);
-  }
-
-  displayNextQuestion = (nextQuestionId) => {
-    const chats = this.state.chats;
-    chats.push({
-      text: this.state.dataset[nextQuestionId].question,
+  const displayNextQuestion = (nextQuestionId, nextDataset) => {
+    addChats({
+      text: nextDataset.question,
       type: 'question',
     });
 
-    this.setState({
-      answers: this.state.dataset[nextQuestionId].answers,
-      chats,
-      currentId: nextQuestionId,
-    });
+    setAnswers(nextDataset.answers);
+    setCurrentId(nextQuestionId);
   };
 
-  selectAnswer = async (selectedAnswer, nextQuestionId) => {
+  const addChats = (chat) => {
+    setChats((prevChats) => [...prevChats, chat]);
+  };
+
+  const selectAnswer = async (selectedAnswer, nextQuestionId) => {
     switch (true) {
-      case nextQuestionId === 'init':
-        this.displayNextQuestion(nextQuestionId);
+      case nextQuestionId === 'contact':
+        handleClickOpen();
         break;
 
-      case nextQuestionId === 'contact':
-        this.handleClickOpen();
-        break;
       case /^https:*/.test(nextQuestionId):
         const a = document.createElement('a');
         a.href = nextQuestionId;
         a.target = '_blank';
         a.click();
         break;
+
       default:
-        const chats = this.state.chats;
-        chats.push({
+        addChats({
           text: selectedAnswer,
           type: 'answer',
-        });
-        this.setState({
-          chats,
         });
 
         // 回答を遅延させる
@@ -70,77 +55,59 @@ export default class App extends React.Component {
           }, 1200);
         });
 
-        this.displayNextQuestion(nextQuestionId);
+        displayNextQuestion(nextQuestionId, dataset[nextQuestionId]);
         break;
     }
   };
 
-  initAnswer = () => {
-    const initDataset = this.state.dataset[this.state.currentId];
-    const initAnswers = initDataset.answers;
+  const handleClickOpen = useCallback(() => {
+    setOpen(true);
+  }, [setOpen]);
 
-    this.setState({
-      answers: initAnswers,
-    });
-  };
+  const handleClose = useCallback(() => {
+    setOpen(false);
+  }, [setOpen]);
 
-  initChats = () => {
-    const initDataset = this.state.dataset[this.state.currentId];
-    const chat = {
-      text: initDataset.question,
-      type: 'question',
-    };
-
-    this.setState({
-      chats: [chat],
-    });
-  };
-
-  handleClickOpen = () => {
-    this.setState({ open: true });
-  };
-
-  handleClose = () => {
-    this.setState({ open: false });
-  };
-
-  initDataSet = (dataset) => {
-    this.setState({ dataset });
-  };
-
-  componentDidMount() {
-    const dataset = {};
+  useEffect(() => {
     (async () => {
-      const snapshots = await db.collection('questions').get();
-      snapshots.forEach((doc) => {
-        dataset[doc.id] = doc.data();
-      });
-      this.initDataSet(dataset);
-      const initAnswer = '';
-      this.selectAnswer(initAnswer, this.state.currentId);
-    })();
-  }
+      const initDataset = {};
+      await db
+        .collection('questions')
+        .get()
+        .then((snapshots) => {
+          snapshots.forEach((doc) => {
+            initDataset[doc.id] = doc.data();
+          });
+        });
 
-  componentDidUpdate(prevProps, prevState, snapshot) {
+      setDataset(initDataset);
+      displayNextQuestion(currentId, initDataset[currentId]);
+    })();
+  }, []);
+
+  useEffect(() => {
     const target = document.getElementById('scroll-area');
     if (target) {
       // scrollTopをスクロール領域の最大高さへ調整する
       target.scrollTop = target.scrollHeight;
     }
-  }
+  });
 
-  render() {
-    return (
-      <section className="c-section">
-        <div className="c-box">
-          <Chats chats={this.state.chats} />
-          <AnswersList
-            answers={this.state.answers}
-            select={this.selectAnswer}
-          />
-          <FormDialog open={this.state.open} handleClose={this.handleClose} />
-        </div>
-      </section>
-    );
-  }
-}
+  return (
+    <section className="c-section">
+      <div className="c-box">
+        {Object.keys(dataset).length ? (
+          <>
+            <Chats chats={chats} />
+            <AnswersList answers={answers} select={selectAnswer} />
+            <FormDialog open={open} handleClose={handleClose} />
+          </>
+        ) : (
+          <Loading />
+        )}
+      </div>
+    </section>
+  );
+};
+
+export default App;

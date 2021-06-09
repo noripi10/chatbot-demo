@@ -71,6 +71,13 @@ const App = () => {
   useEffect(() => {
     (async () => {
       const initDataset = {};
+
+      // const snapShots = await db.collection('questions').get();
+      // snapShots.forEach((doc) => {
+      //   initDataset[doc.id] = doc.data();
+      // });
+      // setDataset(initDataset);
+
       await db
         .collection('questions')
         .get()
@@ -83,6 +90,7 @@ const App = () => {
       setDataset(initDataset);
       displayNextQuestion(currentId, initDataset[currentId]);
     })();
+    // eslint-disable-next-line
   }, []);
 
   useEffect(() => {

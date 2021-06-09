@@ -39,13 +39,13 @@ const FormDialog = (props) => {
     };
 
     const url =
-      'https://hooks.slack.com/services/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';
+      'https://hooks.slack.com/services/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';
     fetch(url, {
       method: 'post',
       body: JSON.stringify(payload),
     }).then(() => {
-      alert('送信が完了しました');
       dialogClose();
+      alert('送信が完了しました');
     });
   };
 
